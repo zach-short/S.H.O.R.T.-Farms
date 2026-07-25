@@ -1,0 +1,29 @@
+
+I'm building an investor-facing 3D site-planning app for my family's farmland using
+CesiumJS. I want an interactive EDITOR where I fly over our real land and place planned
+features by clicking, instead of hardcoding coordinates. Build it as a clean, hostable
+single-page app (index.html, CesiumJS from the CDN, no build tools — deployable to Netlify).
+
+SETUP
+- This folder has my parcel boundary file: [farm.kml]
+- My Cesium ion access token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwOTdkMGI2MC01NTlhLTRlMGMtYmM1ZS1iYzg4OTY1NjIwNWQiLCJpZCI6NDYwNDI2LCJzdWIiOiJlemhvbWVzdGVhZGluZyIsImlzcyI6Imh0dHBzOi8vYXBpLmNlc2l1bS5jb20iLCJhdWQiOiJTaG9ydCBGYXJtcyIsImlhdCI6MTc4NDk4NjM0Nn0.rGsM3v6XA6B5Kuo_-nLYwqkDS5DtR06yT7SeZ4PLh3k
+- Land center lat/long: 37°01'56.44"N 76°39'06.23"W
+- Load the KML from the file in this folder (not a file picker), style it as a translucent
+  fill with a bright outline, add the ion-hosted Google Photorealistic 3D Tiles base over
+  Cesium World Terrain, and fly the camera to the parcel tilted at an angle on load.
+
+EDITOR — build this stage first, keep it simple and well-commented:
+- A toolbar (HTML/CSS overlay) with a "House" tool and a "Select" tool for now.
+- When "House" is armed, a left-click on the terrain places a house marker at that exact
+  3D location (use a simple box or labeled point as a placeholder model for now).
+- When "Select" is armed, clicking a placed house selects it; dragging moves it; pressing
+  Delete removes it. Show its name and let me rename it.
+- A "Save layout" button that exports all placed features as a downloadable JSON file, and
+  a "Load layout" button that reads a JSON file back in and recreates them.
+- Start a local web server so I can preview, and tell me the URL.
+
+Once this works, I'll ask you to add more tools: roads/bridges (draw a line), ponds/airstrips
+(draw a polygon), plus a before/after toggle and a separate view-only mode for investors.
+Keep the code structured so adding those is easy.
+
+Please also make it such that i could drop in a new kml and it would preserve the existing builds ive made over top of it or be able to have multiple projects with different kml files
