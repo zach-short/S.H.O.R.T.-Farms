@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+# name:one-line description — single source of truth for both the menu and completion
+COMMANDS=(
+  "dev:Run the Vite dev server (localhost:5173)"
+  "build:Typecheck (tsc -b) and build the production bundle to dist/"
+  "preview:Serve the production build locally"
+  "lint:Lint with oxlint"
+  "shell:Print the ~/.zshrc snippet for the farm function + completion"
+  "help:List commands"
+)
+
+cmd_dev() {
+  bun run dev
+}
+
+cmd_build() {
+  bun run build
+}
+
+cmd_preview() {
+  bun run preview
+}
+
+cmd_lint() {
+  bun run lint
+}
+
+cmd_help() {
+  echo "usage: farm <command>"
+  echo
+  for entry in "${COMMANDS[@]}"; do
+    printf "  %-9s %s\n" "${entry%%:*}" "${entry#*:}"
+  done
+}
+
+cmd_shell() {
+  cat <<'EOF'
+farm() { "$HOME/Projects/farm/scripts/farm" "$@"; }
+
+_farm_complete() {
+  local -a subcmds
+  subcmds=("${(@f)$(farm --complete)}")
+  _describe 'command' subcmds
+}
+compdef _farm_complete farm
+EOF
+}
+
+cmd___complete() {
+  for entry in "${COMMANDS[@]}"; do
+    echo "$entry"
+  done
+}
+
+# Same table drives an fzf picker on bare invocation — only when it'd actually be
+# interactive, so a cron job or `farm build | something` never gets asked anything.
+interactive_pick() {
+  local lines
+  lines="$(for entry in "${COMMANDS[@]}"; do
+    printf "%-9s %s\n" "${entry%%:*}" "${entry#*:}"
+  done)"
+  echo "$lines" | fzf --prompt='farm> ' --height='~70%' --reverse --no-info \
+    --header='select a command' | awk '{print $1}'
+}
+
+if [[ $# -eq 0 && -t 0 && -t 1 ]] && command -v fzf >/dev/null 2>&1; then
+  picked="$(interactive_pick || true)"
+  [[ -n "$picked" ]] || exit 0
+  set -- "$picked"
+fi
+
+case "${1:-help}" in
+  dev) cmd_dev ;;
+  build) cmd_build ;;
+  preview) cmd_preview ;;
+  lint) cmd_lint ;;
+  shell) cmd_shell ;;
+  --complete) cmd___complete ;;
+  help|*) cmd_help ;;
+esac
