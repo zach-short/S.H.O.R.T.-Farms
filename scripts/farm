@@ -40,7 +40,7 @@ cmd_help() {
 
 cmd_shell() {
   cat <<'EOF'
-farm() { "$HOME/Projects/farm/scripts/farm" "$@"; }
+farm() { "$HOME/Developer/zach-short/farm/scripts/farm" "$@"; }
 
 _farm_complete() {
   local -a subcmds
