@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import {
   Anchor,
+  Camera,
   Flower2,
   Home,
   MousePointer2,
@@ -31,6 +32,7 @@ const icons: Record<ToolId, IconType> = {
   pond: Waves,
   garden: Flower2,
   tree: Trees,
+  concept: Camera,
 };
 
 const groupOf = (id: ToolId) =>

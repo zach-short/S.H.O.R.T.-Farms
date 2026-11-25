@@ -9,7 +9,8 @@ export type FeatureKind =
   | 'airstrip'
   | 'pond'
   | 'garden'
-  | 'tree';
+  | 'tree'
+  | 'concept';
 
 export type GeometryMode = 'point' | 'polyline' | 'polygon';
 
@@ -32,6 +33,14 @@ export interface FeatureProps {
   smoothing?: number;
   /** Which house model this structure uses — see `houseModels.ts`. */
   modelId?: string;
+  /** Concept shots: which image from `conceptImages.ts` this pin shows. */
+  imageId?: string;
+  /** Concept shots: camera tilt in degrees, negative looks down. */
+  pitch?: number;
+  /** Concept shots: how far above the ground the camera stood, in metres. */
+  eyeHeight?: number;
+  /** Concept shots: horizontal field of view in degrees. */
+  fov?: number;
 }
 
 export interface PlacedFeature {

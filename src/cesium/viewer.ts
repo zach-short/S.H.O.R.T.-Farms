@@ -7,6 +7,7 @@ import {
   Ion,
   IonImageryProvider,
   Math as CesiumMath,
+  PerspectiveFrustum,
   ScreenSpaceEventType,
   Viewer,
   createGooglePhotorealistic3DTileset,
@@ -14,7 +15,7 @@ import {
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { ION_TOKEN } from '../config';
-import type { LonLatHeight } from '../types';
+import type { LonLatHeight, PlacedFeature } from '../types';
 
 export interface SceneCapabilities {
   photorealistic: boolean;
@@ -111,6 +112,7 @@ export async function createPlannerScene(container: HTMLDivElement): Promise<Pla
  */
 export function flyToPositions(viewer: Viewer, positions: LonLatHeight[]) {
   if (positions.length === 0) return;
+  restoreFov(viewer);
   const points = positions.map(([lon, lat, height]) =>
     Cartesian3.fromDegrees(lon, lat, height),
   );
@@ -128,4 +130,46 @@ export function setPhotorealisticVisible(scene: PlannerScene, visible: boolean) 
   scene.tileset.show = visible;
   scene.viewer.scene.globe.show = !visible;
   scene.viewer.scene.requestRender();
+}
+
+/** Cesium's own default field of view, put back after a concept view. */
+const DEFAULT_FOV = CesiumMath.toRadians(60);
+
+function setFov(viewer: Viewer, radians: number) {
+  const frustum = viewer.camera.frustum;
+  if (frustum instanceof PerspectiveFrustum) frustum.fov = radians;
+}
+
+export function restoreFov(viewer: Viewer) {
+  setFov(viewer, DEFAULT_FOV);
+  viewer.scene.requestRender();
+}
+
+/**
+ * Puts the camera where a concept shot was taken: over the pin, raised by the
+ * shot's eye height, facing its compass heading and tilted by its pitch, with
+ * the render's field of view. Lining this up against the image shows how the
+ * concept sits on the real land.
+ */
+export function flyToConceptView(viewer: Viewer, feature: PlacedFeature) {
+  if (feature.geometry.type !== 'point') return;
+  const [lon, lat, ground] = feature.geometry.position;
+  const { heading = 0, pitch = 0, eyeHeight = 1.7, fov = 60 } = feature.props;
+
+  // Cesium's fov spans the wider side of the canvas, which matches how the
+  // render's horizontal field of view is given on a landscape screen.
+  const canvas = viewer.canvas;
+  const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+  const span = aspect >= 1 ? fov : 2 * Math.atan(Math.tan(CesiumMath.toRadians(fov) / 2) / aspect) * (180 / Math.PI);
+  setFov(viewer, CesiumMath.toRadians(Math.min(120, span)));
+
+  viewer.camera.flyTo({
+    destination: Cartesian3.fromDegrees(lon, lat, ground + eyeHeight),
+    orientation: {
+      heading: CesiumMath.toRadians(heading),
+      pitch: CesiumMath.toRadians(pitch),
+      roll: 0,
+    },
+    duration: 1.4,
+  });
 }

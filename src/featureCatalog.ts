@@ -28,7 +28,7 @@ export interface FeatureSpec {
   shortcut: string;
   mode: GeometryMode;
   /** Toolbar grouping — a divider is drawn between groups. */
-  group: 'structure' | 'line' | 'area' | 'planting';
+  group: 'structure' | 'line' | 'area' | 'planting' | 'media';
   color: string;
   hint: string;
   defaults: FeatureProps;
@@ -157,6 +157,20 @@ export const FEATURE_SPECS: FeatureSpec[] = [
     defaults: {},
     size: [7, 7, 9],
   },
+  {
+    kind: 'concept',
+    label: 'Concept shot',
+    plural: 'concept shots',
+    shortcut: 'I',
+    mode: 'point',
+    group: 'media',
+    color: '#f5b544',
+    hint:
+      'Pick an image, then click where the shot was taken from. Set Facing in the ' +
+      'right panel so the cone points at the subject. Esc returns to Select.',
+    defaults: { heading: 0 },
+    size: [6, 6, 2],
+  },
 ];
 
 export const specByKind = Object.fromEntries(FEATURE_SPECS.map((s) => [s.kind, s])) as Record<
@@ -164,8 +178,11 @@ export const specByKind = Object.fromEntries(FEATURE_SPECS.map((s) => [s.kind, s
   FeatureSpec
 >;
 
-/** Trees get a bare canopy; the other point kinds get a rectangular footprint. */
+/**
+ * Trees get a bare canopy and concept shots a camera pin; the other point kinds
+ * get a rectangular footprint.
+ */
 export const isStructure = (kind: FeatureKind) =>
-  specByKind[kind].mode === 'point' && kind !== 'tree';
+  specByKind[kind].mode === 'point' && kind !== 'tree' && kind !== 'concept';
 
 export const minimumVertices = (mode: GeometryMode) => (mode === 'polygon' ? 3 : 2);

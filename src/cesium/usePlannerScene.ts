@@ -5,6 +5,7 @@ import type { FeatureLayer } from './featureLayer';
 import type { ToolController } from './tools';
 import { selectActiveProject, usePlannerStore } from '../state/store';
 import { outlineOf } from '../lib/shape';
+import { sceneActions } from '../sceneActions';
 import type { KmlSource, PlacedFeature } from '../types';
 
 export type SceneStatus =
@@ -32,6 +33,7 @@ export function usePlannerScene(containerRef: React.RefObject<HTMLDivElement | n
   // Set once the lazily-imported engine is up; Cesium must not be pulled into
   // the shell bundle just to expose this.
   const flyToFeatureRef = useRef<((feature: PlacedFeature) => void) | null>(null);
+  const restoreFovRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -60,6 +62,8 @@ export function usePlannerScene(containerRef: React.RefObject<HTMLDivElement | n
         controller = new toolsMod.ToolController(created.viewer, layer);
         flyToFeatureRef.current = (feature) =>
           viewerMod.flyToPositions(created.viewer, outlineOf(feature));
+        sceneActions.matchView = (feature) => viewerMod.flyToConceptView(created.viewer, feature);
+        restoreFovRef.current = () => viewerMod.restoreFov(created.viewer);
 
         let kmlDataSource: KmlDataSource | null = null;
         let kmlToken = 0;
@@ -161,12 +165,16 @@ export function usePlannerScene(containerRef: React.RefObject<HTMLDivElement | n
       if (scene && !scene.viewer.isDestroyed()) scene.viewer.destroy();
       sceneRef.current = null;
       flyToFeatureRef.current = null;
+      restoreFovRef.current = null;
+      sceneActions.matchView = null;
     };
   }, [containerRef]);
 
   const flyHome = () => {
     const scene = sceneRef.current;
     if (!scene) return;
+    // A matched concept view may have narrowed or widened the lens.
+    restoreFovRef.current?.();
     const dataSource = scene.viewer.dataSources.get(0);
     if (dataSource) void scene.viewer.flyTo(dataSource, { duration: 1.6 });
   };
