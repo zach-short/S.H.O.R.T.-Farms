@@ -7,6 +7,8 @@ import { usePlannerStore } from './state/store';
 import { ProjectBar } from './components/ProjectBar';
 import { Toolbar } from './components/Toolbar';
 import { HousePicker } from './components/HousePicker';
+import { ConceptPicker } from './components/ConceptPicker';
+import { ConceptLightbox } from './components/ConceptLightbox';
 import { Inspector } from './components/Inspector';
 import { ComponentsPanel } from './components/ComponentsPanel';
 import { LayersPanel } from './components/LayersPanel';
@@ -98,11 +100,12 @@ export default function App() {
               the toolbar row and grows upward; on desktop it returns to the
               top-right corner.
             */}
-            <div className="pointer-events-auto absolute right-3 bottom-24 left-3 flex max-h-[62vh] flex-col gap-3 overflow-y-auto md:top-4 md:right-4 md:bottom-auto md:left-auto md:max-h-none md:w-64 md:overflow-visible">
+            <div className="pointer-events-auto absolute right-3 bottom-24 left-3 flex max-h-[62vh] flex-col gap-3 overflow-y-auto md:top-4 md:right-4 md:bottom-auto md:left-auto md:max-h-[calc(100vh-2rem)] md:w-64">
               <div className={clsx(layersOpen ? 'block' : 'hidden', 'md:block')}>
                 <LayersPanel onFlyHome={flyHome} capabilities={status.capabilities} />
               </div>
               {tool === 'house' && <HousePicker />}
+              {tool === 'concept' && <ConceptPicker />}
               {!componentsOpen && <Inspector />}
             </div>
 
@@ -114,6 +117,8 @@ export default function App() {
             <div className="pointer-events-auto absolute bottom-6 left-1/2 hidden -translate-x-1/2 md:block">
               <HintBar />
             </div>
+
+            <ConceptLightbox />
           </div>
 
           {status.tilesetError && (

@@ -37,6 +37,8 @@ paste into `~/.zshrc`.
 | Action | How |
 | --- | --- |
 | Place a structure | `H` house, `F` restaurant, `M` marina, `B` barn, `D` bridge, `C` horse carriage or `T` tree, then click the ground. The tool stays armed, so click again to place more. |
+| Pin a concept shot | `I`, pick an image in the right panel, then click where the shot was taken from. Turn **Facing** until the cone points at the subject. |
+| See a concept shot | Click its pin. **Full size** opens the image over the map, and **Match view** flies the camera to the spot, height, angle and lens the shot was taken with. |
 | Draw a road, path, river or air strip | `R` road, `N` stone path, `W` river or `A` air strip. Click along the route, then `Enter` or double-click to finish. |
 | Draw a pond, garden, pasture or wheat field | `P` pond, `G` garden, `S` pasture or `K` wheat. Click around the edge, then `Enter` or double-click to finish. |
 | Undo the last point | `Backspace` while drawing |
@@ -131,6 +133,11 @@ bun run build   # then drag dist/ into Netlify, or connect the repo
 The checkout also carries a `.vercel` folder that links it to a Vercel project
 named `farm`. That folder is gitignored.
 
+`vercel.json` sets the same build for Vercel: `bun install`, `bun run build`,
+output `dist/`, and long-lived cache headers on `/cesium/*` and `/assets/*`. It
+has no catch-all rewrite, because the app has no routes and a missing GLB
+should come back as a real 404 rather than as `index.html`.
+
 ## How the code is organised
 
 ```
@@ -196,6 +203,16 @@ so new kinds usually need no new tool code at all. A point kind can point at a
 GLB through `model`, a drawn kind can take a `surface` texture, and a polygon
 kind becomes a graded field by setting `field`. Only a genuinely new look needs
 a renderer in `cesium/featureLayer.ts`.
+
+### Adding a concept image
+
+Concept renders live in `public/concepts/` as WebP copies, 2400 px on the long
+side plus a 560 px `-thumb` version. The full-resolution originals stay outside
+the repo. Add the two files, then add an entry to `CONCEPT_IMAGES` in
+`src/conceptImages.ts` with a label, description and a starting camera (height,
+tilt, field of view). The Concept tool's picker and the pin's **Image** menu
+both read that list. A pin stores only the image id and its camera, so saved
+layouts stay small.
 
 ### Adding a model
 

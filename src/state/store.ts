@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { BUNDLED_KML } from '../config';
 import { specByKind } from '../featureCatalog';
 import { DEFAULT_HOUSE_MODEL_ID } from '../houseModels';
+import { DEFAULT_CONCEPT_IMAGE_ID, resolveConceptImage } from '../conceptImages';
 import { loadPersisted, savePersisted } from './persistence';
 import type {
   FeatureKind,
@@ -33,6 +34,10 @@ interface PlannerState {
   showBoundary: boolean;
   /** Which house model the House tool places next. */
   houseModelId: string;
+  /** Which concept image the Concept tool pins next. */
+  conceptImageId: string;
+  /** The concept pin whose image is open full-screen, if any. Not saved. */
+  lightboxId: string | null;
 
   /** Undo history for the active project only; switching projects clears it. */
   past: Snapshot[];
@@ -47,6 +52,8 @@ interface PlannerState {
   setTool: (tool: ToolId) => void;
   setSelected: (id: string | null) => void;
   setHouseModel: (id: string) => void;
+  setConceptImage: (id: string) => void;
+  setLightbox: (id: string | null) => void;
   toggleLayer: (layer: 'showPhotorealistic' | 'showBoundary') => void;
 
   undo: () => void;
@@ -156,6 +163,8 @@ export const usePlannerStore = create<PlannerState>((set, get) => ({
   showPhotorealistic: true,
   showBoundary: true,
   houseModelId: DEFAULT_HOUSE_MODEL_ID,
+  conceptImageId: DEFAULT_CONCEPT_IMAGE_ID,
+  lightboxId: null,
   past: [],
   future: [],
   historyTag: null,
@@ -193,6 +202,10 @@ export const usePlannerStore = create<PlannerState>((set, get) => ({
 
   // Changing the model with a house selected retimes that house too, so the
   // picker doubles as a swap control for the current selection.
+  setConceptImage: (conceptImageId) => set({ conceptImageId }),
+
+  setLightbox: (lightboxId) => set({ lightboxId }),
+
   setHouseModel: (houseModelId) => {
     set({ houseModelId });
     const { selectedId, projects, activeProjectId, updateFeature } = get();
@@ -284,12 +297,18 @@ export const usePlannerStore = create<PlannerState>((set, get) => ({
       state.projects
         .find((p) => p.id === state.activeProjectId)
         ?.features.filter((f) => f.kind === kind).length ?? 0;
+    const concept = kind === 'concept' ? resolveConceptImage(state.conceptImageId) : null;
     const feature: PlacedFeature = {
       id: nanoid(10),
       kind,
-      name: name ?? `${spec.label} ${existing + 1}`,
+      name: name ?? (concept ? concept.label : `${spec.label} ${existing + 1}`),
       geometry,
-      props: { ...spec.defaults, ...(kind === 'house' && { modelId: state.houseModelId }) },
+      props: {
+        ...spec.defaults,
+        ...(kind === 'house' && { modelId: state.houseModelId }),
+        // A concept pin starts from its image's suggested camera.
+        ...(concept && { imageId: concept.id, ...concept.view }),
+      },
       createdAt: now,
       updatedAt: now,
     };

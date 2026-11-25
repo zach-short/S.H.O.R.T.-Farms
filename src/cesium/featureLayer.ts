@@ -27,6 +27,7 @@ import { outlineOf, smoothingOf } from '../lib/shape';
 import { texture } from '../lib/textures';
 import { ensureModelProbed, modelAvailability, onModelAvailabilityChange } from '../lib/modelAssets';
 import { resolveHouseModel } from '../houseModels';
+import { resolveConceptImage } from '../conceptImages';
 import { isStructure, specByKind, type FeatureSpec } from '../featureCatalog';
 import type { FeatureKind, Geometry, LonLatHeight, PlacedFeature } from '../types';
 
@@ -383,6 +384,116 @@ const areaRenderer: FeatureRenderer = {
   },
 };
 
+/** How far the view cone reaches across the ground, in metres. */
+function coneReach(eyeHeight: number) {
+  // A drone shot covers far more ground than one taken at eye level.
+  return Math.min(140, 35 + eyeHeight * 1.2);
+}
+
+/**
+ * The ground wedge a concept shot looks across: apex at the pin, opening by the
+ * shot's field of view along its compass facing. Heading is a compass bearing
+ * (0 north, clockwise), the same convention the camera uses.
+ */
+function viewCone(feature: PlacedFeature): Cartesian3[] {
+  const [lon, lat] = anchorOf(feature.geometry);
+  const facing = feature.props.heading ?? 0;
+  const fov = feature.props.fov ?? 60;
+  const reach = coneReach(feature.props.eyeHeight ?? 1.7);
+  const metresPerDegLat = 111_320;
+  const metresPerDegLon = metresPerDegLat * Math.cos(CesiumMath.toRadians(lat));
+
+  const points: [number, number][] = [[lon, lat]];
+  const steps = 10;
+  for (let i = 0; i <= steps; i++) {
+    const bearing = CesiumMath.toRadians(facing - fov / 2 + (fov * i) / steps);
+    points.push([
+      lon + (reach * Math.sin(bearing)) / metresPerDegLon,
+      lat + (reach * Math.cos(bearing)) / metresPerDegLat,
+    ]);
+  }
+  return points.map(([x, y]) => Cartesian3.fromDegrees(x, y));
+}
+
+/** Thumbnail size on the map, in pixels, keeping the image's shape. */
+function thumbSize(feature: PlacedFeature, selected: boolean) {
+  const image = resolveConceptImage(feature.props.imageId);
+  const width = selected ? 112 : 84;
+  return { image, width, height: Math.round(width / image.aspect) };
+}
+
+/**
+ * Concept shots: a floating thumbnail of the render over the spot it was taken
+ * from, and a cone on the ground showing which way the camera faced.
+ */
+const conceptRenderer: FeatureRenderer = {
+  build(ctx) {
+    const { image, width, height } = thumbSize(ctx.feature, ctx.selected);
+    const cone = viewCone(ctx.feature);
+    return {
+      id: ENTITY_PREFIX + ctx.feature.id,
+      position: anchorCartesian(ctx.feature.geometry),
+      polygon: {
+        hierarchy: new PolygonHierarchy(cone),
+        material: tint(ctx.spec, ctx.selected, ctx.selected ? 0.38 : 0.22),
+        classificationType: ClassificationType.BOTH,
+      },
+      polyline: {
+        positions: [...cone, cone[0]],
+        width: ctx.selected ? 3 : 2,
+        material: tint(ctx.spec, ctx.selected, 0.95),
+        clampToGround: true,
+        classificationType: ClassificationType.BOTH,
+      },
+      billboard: {
+        image: image.thumbUrl,
+        width,
+        height,
+        pixelOffset: new Cartesian2(0, -14),
+        verticalOrigin: VerticalOrigin.BOTTOM,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        scaleByDistance: new NearFarScalar(300, 1.0, 5000, 0.45),
+      },
+      point: {
+        pixelSize: ctx.selected ? 12 : 9,
+        color: tint(ctx.spec, ctx.selected, 1),
+        outlineColor: ctx.selected ? SELECTED_OUTLINE : OUTLINE_DARK,
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      label: labelOptions(ctx.feature.name, -(height + 20)),
+    };
+  },
+  apply(entity, ctx) {
+    const { image, width, height } = thumbSize(ctx.feature, ctx.selected);
+    const cone = viewCone(ctx.feature);
+    entity.position = anchorCartesian(ctx.feature.geometry) as never;
+    if (entity.polygon) {
+      entity.polygon.hierarchy = new PolygonHierarchy(cone) as never;
+      entity.polygon.material = tint(ctx.spec, ctx.selected, ctx.selected ? 0.38 : 0.22) as never;
+    }
+    if (entity.polyline) {
+      entity.polyline.positions = [...cone, cone[0]] as never;
+      entity.polyline.width = (ctx.selected ? 3 : 2) as never;
+      entity.polyline.material = tint(ctx.spec, ctx.selected, 0.95) as never;
+    }
+    if (entity.billboard) {
+      entity.billboard.image = image.thumbUrl as never;
+      entity.billboard.width = width as never;
+      entity.billboard.height = height as never;
+    }
+    if (entity.point) {
+      entity.point.pixelSize = (ctx.selected ? 12 : 9) as never;
+      entity.point.color = tint(ctx.spec, ctx.selected, 1) as never;
+      entity.point.outlineColor = (ctx.selected ? SELECTED_OUTLINE : OUTLINE_DARK) as never;
+    }
+    if (entity.label) {
+      entity.label.text = ctx.feature.name as never;
+      entity.label.pixelOffset = new Cartesian2(0, -(height + 20)) as never;
+    }
+  },
+};
+
 /** Identifies the graphics an entity was built from. */
 function variantOf(ctx: RenderContext): string {
   if (ctx.feature.kind !== 'house') return ctx.feature.kind;
@@ -391,6 +502,7 @@ function variantOf(ctx: RenderContext): string {
 
 function rendererFor(kind: FeatureKind): FeatureRenderer {
   const spec = specByKind[kind];
+  if (kind === 'concept') return conceptRenderer;
   if (spec.mode === 'polyline') return corridorRenderer;
   if (spec.mode === 'polygon') return areaRenderer;
   return isStructure(kind) ? structureRenderer : treeRenderer;

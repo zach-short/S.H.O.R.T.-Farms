@@ -1,9 +1,11 @@
-import { Trash2 } from 'lucide-react';
+import { Maximize2, ScanEye, Trash2 } from 'lucide-react';
 import { usePlannerStore } from '../state/store';
 import { formatArea, formatLength, formatLonLat, pathLength, polygonArea } from '../lib/geo';
 import { outlineOf, smoothingOf } from '../lib/shape';
 import { isStructure, specByKind } from '../featureCatalog';
 import { HOUSE_MODELS, resolveHouseModel } from '../houseModels';
+import { CONCEPT_IMAGES, resolveConceptImage } from '../conceptImages';
+import { sceneActions } from '../sceneActions';
 import type { PlacedFeature } from '../types';
 import { Button, TextInput } from './ui';
 
@@ -62,6 +64,112 @@ function Slider({
   );
 }
 
+const selectClass =
+  'w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-100 focus:border-sky-400/60 focus:outline-none';
+
+/** The image, camera and quick actions of a concept-shot pin. */
+function ConceptControls({
+  feature,
+  setProp,
+}: {
+  feature: PlacedFeature;
+  setProp: (patch: Record<string, unknown>, tag: string) => void;
+}) {
+  const setLightbox = usePlannerStore((s) => s.setLightbox);
+  const image = resolveConceptImage(feature.props.imageId);
+  const { heading = 0, pitch = 0, eyeHeight = 1.7, fov = 60 } = feature.props;
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={() => setLightbox(feature.id)}
+        title="View full size"
+        className="group relative block w-full overflow-hidden rounded-lg ring-1 ring-white/10"
+      >
+        <img src={image.thumbUrl} alt={image.description} className="block w-full" />
+        <span className="absolute right-1.5 bottom-1.5 rounded-md bg-slate-950/70 p-1 text-white opacity-80 group-hover:opacity-100">
+          <Maximize2 size={12} />
+        </span>
+      </button>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button
+          variant="solid"
+          className="whitespace-nowrap"
+          onClick={() => sceneActions.matchView?.(feature)}
+        >
+          <ScanEye size={13} /> Match view
+        </Button>
+        <Button className="bg-white/5 whitespace-nowrap" onClick={() => setLightbox(feature.id)}>
+          <Maximize2 size={13} /> Full size
+        </Button>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-[11px] text-slate-400">Image</label>
+        <select
+          value={image.id}
+          onChange={(e) => {
+            // A new image brings its own suggested camera; facing stays put.
+            const next = resolveConceptImage(e.target.value);
+            setProp({ imageId: next.id, ...next.view }, `image:${feature.id}`);
+          }}
+          className={selectClass}
+        >
+          {CONCEPT_IMAGES.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <Slider
+        label="Facing"
+        value={heading}
+        display={`${heading}° ${compassPoint(heading)}`}
+        min={0}
+        max={359}
+        tag={`heading:${feature.id}`}
+        onChange={(value, tag) => setProp({ heading: value }, tag)}
+      />
+      <Slider
+        label="Tilt"
+        value={pitch}
+        display={`${pitch}°`}
+        min={-90}
+        max={30}
+        tag={`pitch:${feature.id}`}
+        onChange={(value, tag) => setProp({ pitch: value }, tag)}
+      />
+      <Slider
+        label="Camera height"
+        value={eyeHeight}
+        display={`${eyeHeight} m`}
+        min={0.5}
+        max={150}
+        step={0.5}
+        tag={`eye:${feature.id}`}
+        onChange={(value, tag) => setProp({ eyeHeight: value }, tag)}
+      />
+      <Slider
+        label="Field of view"
+        value={fov}
+        display={`${fov}°`}
+        min={20}
+        max={110}
+        tag={`fov:${feature.id}`}
+        onChange={(value, tag) => setProp({ fov: value }, tag)}
+      />
+    </div>
+  );
+}
+
+function compassPoint(degrees: number) {
+  const points = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return points[Math.round(degrees / 45) % 8];
+}
+
 /**
  * Every editable property of one placed feature. Shared by the map-side
  * inspector and the components browser so both offer the same controls.
@@ -110,6 +218,8 @@ export function FeatureEditor({ feature }: { feature: PlacedFeature }) {
           </select>
         </div>
       )}
+
+      {feature.kind === 'concept' && <ConceptControls feature={feature} setProp={setProp} />}
 
       {/* Only the boxed structures have a meaningful facing direction. */}
       {isStructure(feature.kind) && (
