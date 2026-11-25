@@ -133,6 +133,11 @@ bun run build   # then drag dist/ into Netlify, or connect the repo
 The checkout also carries a `.vercel` folder that links it to a Vercel project
 named `farm`. That folder is gitignored.
 
+`vercel.json` sets the same build for Vercel: `bun install`, `bun run build`,
+output `dist/`, and long-lived cache headers on `/cesium/*` and `/assets/*`. It
+has no catch-all rewrite, because the app has no routes and a missing GLB
+should come back as a real 404 rather than as `index.html`.
+
 ## How the code is organised
 
 ```
